@@ -20,6 +20,7 @@ import android.support.annotation.ColorInt;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
+import android.support.constraint.ConstraintLayout;
 import android.support.design.widget.TabLayout;
 import android.support.v4.widget.ImageViewCompat;
 import android.text.TextUtils;
@@ -94,6 +95,7 @@ public class SimpleSearchView extends FrameLayout {
 
     private boolean searchIsClosing = false;
     private boolean keepQuery = false;
+    private boolean isAlwaysExpanded = false;
 
     public SimpleSearchView(Context context) {
         this(context, null);
@@ -260,6 +262,7 @@ public class SimpleSearchView extends FrameLayout {
         savedState.isSearchOpen = isSearchOpen;
         savedState.animationDuration = animationDuration;
         savedState.keepQuery = keepQuery;
+        savedState.isAlwaysExpanded = isAlwaysExpanded;
 
         return savedState;
     }
@@ -277,6 +280,7 @@ public class SimpleSearchView extends FrameLayout {
         animationDuration = savedState.animationDuration;
         voiceSearchPrompt = savedState.voiceSearchPrompt;
         keepQuery = savedState.keepQuery;
+        isAlwaysExpanded =savedState.isAlwaysExpanded;
 
         if (savedState.isSearchOpen) {
             showSearch(false);
@@ -330,7 +334,9 @@ public class SimpleSearchView extends FrameLayout {
         CharSequence submittedQuery = searchEditText.getText();
         if (submittedQuery != null && TextUtils.getTrimmedLength(submittedQuery) > 0) {
             if (onQueryChangeListener == null || !onQueryChangeListener.onQueryTextSubmit(submittedQuery.toString())) {
-                closeSearch();
+                if(!isAlwaysExpanded) {
+                    closeSearch();
+                }
                 searchIsClosing = true;
                 searchEditText.setText(null);
                 searchIsClosing = false;
@@ -469,7 +475,9 @@ public class SimpleSearchView extends FrameLayout {
         this.tabLayout.addOnTabSelectedListener(new SimpleOnTabSelectedListener() {
             @Override
             public void onTabUnselected(TabLayout.Tab tab) {
-                closeSearch();
+                if (!isAlwaysExpanded) {
+                    closeSearch();
+                }
             }
         });
     }
@@ -530,7 +538,7 @@ public class SimpleSearchView extends FrameLayout {
      * @return true if acted, false if not acted
      */
     public boolean onBackPressed() {
-        if (isSearchOpen()) {
+        if (isSearchOpen() && !isAlwaysExpanded) {
             closeSearch();
             return true;
         }
@@ -616,6 +624,60 @@ public class SimpleSearchView extends FrameLayout {
         drawable.setColor(Color.WHITE);
         drawable.setCornerRadius(DimensUtils.convertDpToPx(CARD_CORNER_RADIUS, context));
         return drawable;
+    }
+
+    /**
+     * set the flag to true would prevent other functions call closeSearch()
+     */
+    public void setAlwaysExpanded(boolean isAlwaysExpand) {
+        this.isAlwaysExpanded = isAlwaysExpand;
+    }
+
+    /**
+     * Return false in the listener to let the system handle keyboard dismiss
+     */
+    public void preventSubmitCloseSearch(){
+        searchEditText.setOnEditorActionListener((v, actionId, event) -> {
+            SimpleSearchView.this.onSubmitQuery();
+            return false;
+        });
+    }
+
+    /**
+     * Set visibility of the backButton
+     */
+    public void setBackButtonVisibility(int visibility){
+        backButton.setVisibility(visibility);
+    }
+
+    /**
+     * Add extra margin left for the searchEditText
+     */
+    public void setEditTextStartMargin(int editTextStartMargin){
+        ConstraintLayout.LayoutParams param = (ConstraintLayout.LayoutParams) searchEditText.getLayoutParams();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            param.setMarginStart(DimensUtils.convertDpToPx(editTextStartMargin, context));
+        } else {
+            param.setMargins(DimensUtils.convertDpToPx(editTextStartMargin, context), param.topMargin, param.rightMargin, param.bottomToBottom);
+        }
+        searchEditText.setLayoutParams(param);
+    }
+
+
+    /**
+     * Similar to showSearch(false), but do not request focus. used to initialize when isAlwaysExpanded == true
+     */
+    public void showSearchWithoutFocusRequest() {
+        if (isSearchOpen()) {
+            return;
+        }
+        searchEditText.setText(keepQuery ? query : null);
+        setVisibility(View.VISIBLE);
+        hideTabLayout(false);
+        isSearchOpen = true;
+        if (searchViewListener != null) {
+            searchViewListener.onSearchViewShown();
+        }
     }
 
     /**
@@ -832,6 +894,7 @@ public class SimpleSearchView extends FrameLayout {
         int animationDuration;
         String voiceSearchPrompt;
         boolean keepQuery;
+        boolean isAlwaysExpanded;
 
         SavedState(Parcelable superState) {
             super(superState);
@@ -844,6 +907,7 @@ public class SimpleSearchView extends FrameLayout {
             this.animationDuration = in.readInt();
             this.voiceSearchPrompt = in.readString();
             this.keepQuery = in.readInt() == 1;
+            this.isAlwaysExpanded = in.readInt() == 1;
         }
 
         @Override
@@ -854,6 +918,7 @@ public class SimpleSearchView extends FrameLayout {
             out.writeInt(animationDuration);
             out.writeString(voiceSearchPrompt);
             out.writeInt(keepQuery ? 1 : 0);
+            out.writeInt(isAlwaysExpanded ? 1 : 0);
         }
     }
 
