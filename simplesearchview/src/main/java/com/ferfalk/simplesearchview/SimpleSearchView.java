@@ -627,16 +627,11 @@ public class SimpleSearchView extends FrameLayout {
     }
 
     /**
-     * set the flag to true would prevent other functions call closeSearch()
+     * Set the flag to true would prevent other functions call closeSearch()
+     * Return false in the listener to let the system handle keyboard dismiss
      */
     public void setAlwaysExpanded(boolean isAlwaysExpand) {
         this.isAlwaysExpanded = isAlwaysExpand;
-    }
-
-    /**
-     * Return false in the listener to let the system handle keyboard dismiss
-     */
-    public void preventSubmitCloseSearch(){
         searchEditText.setOnEditorActionListener((v, actionId, event) -> {
             SimpleSearchView.this.onSubmitQuery();
             return false;
